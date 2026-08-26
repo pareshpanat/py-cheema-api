@@ -1,3 +1,7 @@
+import time
+
+# `from py_cheema_api import ...` also works and is exactly equivalent --
+# it's an alias matching the `pip install py-cheema-api` distribution name.
 from cheema import (
     APIRouter,
     BackgroundTask,
@@ -13,9 +17,12 @@ from cheema import (
     GZipMiddleware,
     Header,
     Host,
+    HTMLResponse,
     HTTPError,
+    HTTPException,
     HTTPSRedirectMiddleware,
     InMemoryJobQueue,
+    MemoryCache,
     MemorySessionBackend,
     MetricsMiddleware,
     Model,
@@ -92,6 +99,7 @@ ws_manager = ConnectionManager()
 session_backend = MemorySessionBackend()
 metrics_events = []
 jobs_queue = InMemoryJobQueue()
+response_cache = MemoryCache(max_entries=256)
 
 
 # Security dependency instances reused by multiple routes.
@@ -122,13 +130,15 @@ async def get_user_agent(req: Request):
 
 
 class RequestContext:
-    def __init__(self, req: Request, trace_id: str = Header(alias="x-trace-id", required=False)):
+    def __init__(self, req: Request, trace_id: str = Header(alias="x-trace-id", default=None)):
         self.path = req.path
         self.trace_id = trace_id
 
 
-async def require_client_version(x_client_version: str = Header(alias="x-client-version", required=False)):
-    return x_client_version or "unknown"
+async def require_client_version(x_client_version: str = Header(alias="x-client-version", default="unknown")):
+    # default= (rather than the required=False + `x or fallback` pattern
+    # this used to need) returns "unknown" directly when the header is absent.
+    return x_client_version
 
 
 client_meta_dependencies = dependency_group(require_client_version)
@@ -198,7 +208,7 @@ app.use_asgi(
 app.use_asgi(GZipMiddleware(minimum_size=200))
 app.use_asgi(CompressionMiddleware(minimum_size=256, prefer=["gzip", "deflate"]))
 app.use_asgi(RateLimitMiddleware(max_requests=1000, window_seconds=60))
-app.use_asgi(ResponseCacheMiddleware(ttl_seconds=5, max_entries=256))
+app.use_asgi(ResponseCacheMiddleware(ttl_seconds=5, cache=response_cache))
 app.use_asgi(TrustedHostMiddleware(["127.0.0.1", "localhost"]))
 app.use_asgi(
     SessionMiddleware(
@@ -218,6 +228,11 @@ if ENABLE_HTTPS_REDIRECT:
     app.use_asgi(HTTPSRedirectMiddleware())
 
 app.add_state_resource("jobs", start_jobs, cleanup=stop_jobs)
+
+# Ops status endpoint: route table, middleware stack, uptime, inflight
+# requests. Reuses the same allow_docs gate as /docs -- returns False (or
+# raises) to reject with 401. Excluded from the OpenAPI schema by default.
+app.add_status_route(auth=allow_docs)
 
 
 class DemoExtension:
@@ -345,6 +360,24 @@ async def sse():
     return EventSourceResponse(events(), ping_interval=None)
 
 
+@app.get("/welcome", response_class=HTMLResponse, summary="response_class= demo")
+async def welcome_message():
+    # Returning a bare string with response_class=HTMLResponse wraps it as
+    # text/html, instead of the default text/plain for a plain string return.
+    return "<h1>Hello, World!</h1><p>Raw HTML response</p>"
+
+
+@app.get("/cached-timestamp", summary="MemoryCache demo")
+async def cached_timestamp():
+    # response_cache is the same MemoryCache instance ResponseCacheMiddleware
+    # uses above -- app code and the middleware share one store. Calling
+    # this repeatedly within 5s returns the same value; the middleware would
+    # also short-circuit a repeat request to this route before this handler
+    # even runs.
+    value = await response_cache.get_or_set("demo-timestamp", lambda: time.time(), ttl=5)
+    return {"timestamp": value}
+
+
 # -------------------------------
 # Non-JSON request body examples
 # -------------------------------
@@ -435,8 +468,13 @@ async def deps_class_demo(ctx=ClassDepends(RequestContext)):
 
 
 @api.get("/search")
-async def search(tags: list[str] = Query(), trace_id: str = Header(alias="x-trace-id", required=False)):
-    return {"tags": tags, "trace_id": trace_id}
+async def search(
+    tags: list[str] = Query(),
+    trace_id: str = Header(alias="x-trace-id", default=None),
+    limit: int = Query(default=50, description="Max results"),
+    offset: int = Query(default=0, description="Results to skip"),
+):
+    return {"tags": tags, "trace_id": trace_id, "limit": limit, "offset": offset}
 
 
 @api.get("/host")
@@ -472,7 +510,9 @@ async def file_path_view(file_path: str):
 )
 async def create_user(user: UserIn):
     if user["age"] == 0:
-        raise HTTPError(409, "User conflict")
+        # HTTPException is an alias for HTTPError, for FastAPI-style code --
+        # they're the exact same class, interchangeable everywhere.
+        raise HTTPException(409, "User conflict")
     return {"id": 1, "name": user["name"], "age": user["age"]}
 
 
@@ -520,8 +560,23 @@ app.include_router(api, dependencies=[Depends(get_user_agent)])
 def _demo_testclient():
     # Lightweight local smoke for docs: python examples/app.py
     # This keeps the example self-contained without adding a test file.
+    # host header is required: TrustedHostMiddleware only allows 127.0.0.1/localhost.
+    headers = {"host": "localhost"}
     with TestClient(app) as client:
-        assert client.get("/ping").status_code == 200
+        assert client.get("/ping", headers=headers).status_code == 200
+
+        welcome = client.get("/welcome", headers=headers)
+        assert welcome.status_code == 200
+        assert welcome.headers["content-type"] == "text/html; charset=utf-8"
+
+        cached = client.get("/cached-timestamp", headers=headers)
+        assert cached.status_code == 200
+        assert "timestamp" in cached.json()
+
+        assert client.get("/admin/status", headers=headers).status_code == 401
+        status = client.get("/admin/status", headers={**headers, "x-docs-token": "demo-docs"})
+        assert status.status_code == 200
+        assert "routes" in status.json()
 
 
 if __name__ == "__main__":
