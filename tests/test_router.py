@@ -1,5 +1,6 @@
 from cheema.routing import Router
 
+
 def test_router_param():
     r=Router()
     async def h(): ...

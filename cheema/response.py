@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import asyncio
 import inspect
 import json
@@ -9,9 +10,10 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from email.utils import formatdate
 from enum import Enum
-from typing import Iterable, Tuple, Union, Optional, Any, Callable
+from typing import Any, Callable, Iterable, Optional, Tuple, Union
 from uuid import UUID
-from .pydantic_compat import is_pydantic_model_instance, dump_pydantic_model
+
+from .pydantic_compat import dump_pydantic_model, is_pydantic_model_instance
 
 Headers = Iterable[Tuple[bytes, bytes]]
 Body = Union[bytes, bytearray, memoryview]

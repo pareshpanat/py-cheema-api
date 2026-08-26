@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import re
 import types
-from dataclasses import MISSING, dataclass, fields as dataclass_fields, is_dataclass
+from dataclasses import MISSING, dataclass, is_dataclass
+from dataclasses import fields as dataclass_fields
 from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
 from enum import Enum

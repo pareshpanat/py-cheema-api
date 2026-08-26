@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import json
 import time
+
 from cheema import (
     Cheema,
     Depends,
@@ -11,10 +12,11 @@ from cheema import (
     api_key_auth,
     bearer_auth,
     jwt_auth,
-    oauth2_bearer,
     oauth2_authorization_code,
+    oauth2_bearer,
     oauth2_client_credentials,
 )
+
 
 def _b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")

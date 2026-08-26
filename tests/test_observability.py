@@ -3,13 +3,13 @@ import json
 import tempfile
 
 from cheema import (
+    Cheema,
     MetricsMiddleware,
     PrometheusMiddleware,
     Request,
     RequestIDMiddleware,
     StructuredLoggingMiddleware,
     TracingMiddleware,
-    Cheema,
     get_request_id,
 )
 

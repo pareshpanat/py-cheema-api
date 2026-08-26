@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import base64
 import hashlib
 import hmac
@@ -7,6 +8,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 from urllib.request import urlopen
+
 from .errors import HTTPError
 from .request import Request
 

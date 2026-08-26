@@ -4,13 +4,13 @@ import time
 
 from cheema import (
     CeleryQueueAdapter,
+    Cheema,
     InMemoryJobQueue,
     RedisQueueAdapter,
-    RQQueueAdapter,
     Request,
     RetryPolicy,
+    RQQueueAdapter,
     TestClient,
-    Cheema,
     app_state_dependency,
     get_app_state,
 )

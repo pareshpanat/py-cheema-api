@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Callable, Dict, Optional
 from uuid import UUID
+
 
 @dataclass(slots=True)
 class Match:

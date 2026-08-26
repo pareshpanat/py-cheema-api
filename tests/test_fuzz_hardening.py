@@ -3,7 +3,7 @@ import json
 import random
 import string
 
-from cheema import Depends, Model, Cheema, jwt_auth
+from cheema import Cheema, Depends, Model, jwt_auth
 
 
 def _rand_token(rng: random.Random, size: int):

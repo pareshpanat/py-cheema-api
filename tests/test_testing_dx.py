@@ -1,4 +1,4 @@
-from cheema import Depends, Request, SessionMiddleware, TestClient, Cheema
+from cheema import Cheema, Depends, Request, SessionMiddleware, TestClient
 
 
 def test_testclient_lifespan_and_basic_requests():

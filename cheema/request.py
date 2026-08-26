@@ -1,11 +1,13 @@
 from __future__ import annotations
+
 import asyncio
 import json
 import time
 from dataclasses import dataclass
 from tempfile import SpooledTemporaryFile
-from typing import Dict, Optional, Any, AsyncIterator
+from typing import Any, AsyncIterator, Dict, Optional
 from urllib.parse import parse_qs
+
 from .errors import HTTPError
 
 MAX_QUERY_FIELDS = 2048

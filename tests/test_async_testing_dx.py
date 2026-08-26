@@ -1,6 +1,6 @@
 import asyncio
 
-from cheema import AsyncTestClient, Request, SessionMiddleware, Cheema, WebSocket
+from cheema import AsyncTestClient, Cheema, Request, SessionMiddleware, WebSocket
 
 
 def test_async_testclient_lifespan_and_http_requests():

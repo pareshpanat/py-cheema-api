@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-from cheema import APIRouter, Depends, HTTPError, Cheema, api_key_auth
+from cheema import APIRouter, Cheema, Depends, HTTPError, api_key_auth
 
 
 async def run_http(app, method="GET", path="/", headers=None):

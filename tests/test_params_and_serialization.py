@@ -6,7 +6,9 @@ from decimal import Decimal
 from enum import Enum
 from typing import TypedDict
 from uuid import UUID
-from cheema import Cheema, Query, Header, Cookie, Form, File, UploadFile
+
+from cheema import Cheema, Cookie, File, Form, Header, Query, UploadFile
+
 
 async def run_http(app, method="GET", path="/", query="", headers=None, body=b""):
     sent = []

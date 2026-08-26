@@ -2,12 +2,12 @@ import json
 
 from cheema import (
     APIRouter,
+    Cheema,
     ClassDepends,
     Depends,
     Header,
     Request,
     TestClient,
-    Cheema,
     dependency_group,
     register_extension_hook,
     run_extension_hooks,

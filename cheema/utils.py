@@ -2,6 +2,7 @@ import asyncio
 import inspect
 from contextlib import asynccontextmanager
 
+
 @asynccontextmanager
 async def timeout(seconds: float):
     if seconds is None or seconds <= 0:

@@ -7,11 +7,11 @@ from typing import Annotated, Literal, Union
 
 from cheema import (
     Body,
+    Cheema,
     CompressionMiddleware,
     Query,
     RateLimitMiddleware,
     ResponseCacheMiddleware,
-    Cheema,
     field,
     type_validator,
 )

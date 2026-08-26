@@ -2,7 +2,7 @@ import asyncio
 import json
 import threading
 
-from cheema import Depends, Cheema
+from cheema import Cheema, Depends
 
 
 async def run_http(app, method="GET", path="/", headers=None, body=b""):

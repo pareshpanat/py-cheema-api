@@ -3,16 +3,16 @@ import gzip
 import json
 
 from cheema import (
+    Cheema,
     CORSMiddleware,
     CSRFMiddleware,
     GZipMiddleware,
     HTTPSRedirectMiddleware,
     MemorySessionBackend,
     ProxyHeadersMiddleware,
+    Request,
     SessionMiddleware,
     TrustedHostMiddleware,
-    Cheema,
-    Request,
 )
 
 

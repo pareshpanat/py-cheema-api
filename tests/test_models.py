@@ -1,11 +1,20 @@
-import pytest
 from datetime import date, datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Annotated, Literal, Union
 from uuid import UUID
-from cheema.models import Model, field, field_validator, model_validator, compile_model_validator
+
+import pytest
+
 from cheema.errors import HTTPError
+from cheema.models import (
+    Model,
+    compile_model_validator,
+    field,
+    field_validator,
+    model_validator,
+)
+
 
 class U(Model):
     name: str = field(min_len=2)

@@ -7,7 +7,7 @@ import statistics
 import time
 from pathlib import Path
 
-from cheema import GZipMiddleware, Cheema
+from cheema import Cheema, GZipMiddleware
 
 
 async def _run_one_http(app, path="/ping"):

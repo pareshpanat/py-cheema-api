@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-from cheema import HTTPError, Request, Cheema
+from cheema import Cheema, HTTPError, Request
 
 
 async def run_http(app, method="GET", path="/", headers=None):

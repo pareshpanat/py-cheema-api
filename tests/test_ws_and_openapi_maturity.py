@@ -2,9 +2,9 @@ import asyncio
 import json
 
 from cheema import (
+    Cheema,
     ConnectionManager,
     Model,
-    Cheema,
     WebSocket,
     normalize_ws_close_code,
     ws_close_reason,
