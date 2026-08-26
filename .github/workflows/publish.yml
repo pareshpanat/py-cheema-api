@@ -1,0 +1,161 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  test-and-lint:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check .
+      - name: Test
+        run: python -m pytest -q
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test-and-lint
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build distribution
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+          rm -rf dist build
+          python -m build
+      - name: Verify distribution filenames
+        run: |
+          ls -la dist
+          python - <<'PY'
+          import pathlib, sys
+          files = [p.name for p in pathlib.Path("dist").glob("*") if p.is_file()]
+          if not files:
+              print("No distribution artifacts found in dist/")
+              sys.exit(1)
+          bad = [f for f in files if not f.startswith("py_cheema_api-")]
+          if bad:
+              print("Unexpected distribution artifact(s):", ", ".join(bad))
+              sys.exit(1)
+          print("Distribution artifacts verified:", ", ".join(files))
+          PY
+      - name: Check distribution metadata
+        run: twine check dist/py_cheema_api-*
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/py_cheema_api-*
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      id-token: write
+      contents: read
+    environment:
+      name: pypi
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - name: Verify tag matches pyproject version
+        run: |
+          python - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          pyproject = pathlib.Path("pyproject.toml").read_text(encoding="utf-8")
+          match = re.search(r'(?m)^\s*version\s*=\s*"([^"]+)"\s*$', pyproject)
+          if not match:
+              print("Could not read [project].version from pyproject.toml")
+              sys.exit(1)
+          project_version = match.group(1)
+
+          tag = "${{ github.ref_name }}"
+          if not tag.startswith("v"):
+              print(f"Tag '{tag}' is invalid for this workflow; expected vX.Y.Z")
+              sys.exit(1)
+          tag_version = tag[1:]
+
+          if tag_version != project_version:
+              print(
+                  f"Tag/version mismatch: tag is {tag_version}, "
+                  f"but pyproject.toml version is {project_version}."
+              )
+              sys.exit(1)
+
+          print(f"Tag/version check passed: {tag_version}")
+          PY
+      - name: Verify release version is not already on PyPI
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import urllib.error
+          import urllib.request
+          import re
+          import sys
+
+          files = [p.name for p in pathlib.Path("dist").glob("py_cheema_api-*") if p.is_file()]
+          if not files:
+              print("No release artifacts found in dist/")
+              sys.exit(1)
+
+          match = re.match(r"^py_cheema_api-(.+?)-", files[0])
+          if not match:
+              print("Could not infer version from artifact name:", files[0])
+              sys.exit(1)
+          version = match.group(1)
+
+          url = "https://pypi.org/pypi/py-cheema-api/json"
+          try:
+              with urllib.request.urlopen(url, timeout=15) as resp:
+                  payload = json.load(resp)
+          except urllib.error.HTTPError as exc:
+              if exc.code == 404:
+                  print("Project not found on PyPI yet; proceeding.")
+                  sys.exit(0)
+              raise
+
+          releases = payload.get("releases", {})
+          if version in releases and releases[version]:
+              print(
+                  f"Release {version} already exists on PyPI. "
+                  "PyPI does not allow replacing/deleting and re-uploading the same filename/version. "
+                  "Bump version in pyproject.toml, rebuild, and publish again."
+              )
+              sys.exit(1)
+
+          print(f"Version {version} is not present on PyPI; proceeding with publish.")
+          PY
+      - name: Sanitize publish artifact set
+        run: |
+          find dist -type f ! -name 'py_cheema_api-*' -delete
+          ls -la dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
