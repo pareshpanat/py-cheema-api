@@ -325,7 +325,7 @@ async def resolve_callable(fn: Callable[..., Any], *, req, query_multi: Dict[str
     result = await call_callable(fn, **kwargs)
     if inspect.isasyncgen(result):
         try:
-            value = await anext(result)
+            value = await result.__anext__()
         except StopAsyncIteration:
             raise HTTPError(500, "Dependency generator did not yield a value")
         cleanups.append(result.aclose)
