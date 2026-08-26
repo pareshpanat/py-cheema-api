@@ -125,9 +125,13 @@ jobs:
               print("No release artifacts found in dist/")
               sys.exit(1)
 
-          match = re.match(r"^py_cheema_api-(.+?)-", files[0])
+          match = None
+          for f in files:
+              match = re.match(r"^py_cheema_api-(.+?)(?:-py3-none-any\.whl|\.tar\.gz)$", f)
+              if match:
+                  break
           if not match:
-              print("Could not infer version from artifact name:", files[0])
+              print("Could not infer version from artifact name(s):", ", ".join(files))
               sys.exit(1)
           version = match.group(1)
 
