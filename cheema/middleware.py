@@ -13,6 +13,8 @@ import time
 import zlib
 from typing import Any, Awaitable, Callable, Optional
 
+from .cache import MemoryCache
+
 HTTPMiddleware = Callable[..., Awaitable[Any]]
 ASGIApp = Callable[[dict, Callable, Callable], Awaitable[Any]]
 
@@ -505,13 +507,13 @@ class ResponseCacheMiddleware:
         key_func: Optional[Callable[[dict], str]] = None,
         max_entries: int = 1024,
         cache_statuses: Optional[set[int]] = None,
+        cache: Optional["MemoryCache"] = None,
     ):
         self.ttl_seconds = float(ttl_seconds)
         self.methods = {m.upper() for m in (methods or ["GET", "HEAD"])}
         self.key_func = key_func
-        self.max_entries = int(max_entries)
         self.cache_statuses = set(cache_statuses or {200})
-        self._store: dict[str, tuple[float, int, list[tuple[bytes, bytes]], bytes]] = {}
+        self.cache = cache if cache is not None else MemoryCache(max_entries=max_entries)
 
     def _key(self, scope: dict):
         if self.key_func is not None:
@@ -525,12 +527,6 @@ class ResponseCacheMiddleware:
         headers = _headers_to_map(scope.get("headers"))
         accept = (headers.get("accept") or [""])[-1]
         return f"{method}:{path}?{query.decode('latin1')}|accept={accept}"
-
-    def _prune(self):
-        if len(self._store) <= self.max_entries:
-            return
-        oldest_key = min(self._store.items(), key=lambda x: x[1][0])[0]
-        self._store.pop(oldest_key, None)
 
     def __call__(self, app: ASGIApp):
         async def wrapped(scope, receive, send):
@@ -546,10 +542,9 @@ class ResponseCacheMiddleware:
                 await app(scope, receive, send)
                 return
             cache_key = self._key(scope)
-            now = time.time()
-            cached = self._store.get(cache_key)
-            if cached and cached[0] > now:
-                _expires, status, headers, body = cached
+            cached = await self.cache.get(cache_key)
+            if cached is not None:
+                status, headers, body = cached
                 await send({"type": "http.response.start", "status": status, "headers": list(headers)})
                 await send({"type": "http.response.body", "body": body})
                 return
@@ -588,8 +583,7 @@ class ResponseCacheMiddleware:
                 and not set_cookie
             )
             if should_cache:
-                self._store[cache_key] = (now + self.ttl_seconds, status, headers, body)
-                self._prune()
+                await self.cache.set(cache_key, (status, headers, body), ttl=self.ttl_seconds)
 
             await send(start_msg)
             await send({"type": "http.response.body", "body": body, "more_body": False})

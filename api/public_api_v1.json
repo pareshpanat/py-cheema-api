@@ -30,6 +30,7 @@
   "JWKSCache",
   "JobRecord",
   "LogEvent",
+  "MemoryCache",
   "MemorySessionBackend",
   "MetricEvent",
   "MetricsMiddleware",

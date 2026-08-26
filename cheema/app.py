@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import os
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass, is_dataclass
 from typing import Any, Awaitable, Callable, Optional
@@ -187,6 +188,7 @@ class Cheema:
         self._inflight_http = 0
         self._drain_event = asyncio.Event()
         self._drain_event.set()
+        self._started_at = time.time()
         self._http_handler = self.middleware.build_http(self._final_handler)
         self._asgi_app = self.middleware.build_asgi(self._dispatch_asgi)
         self._openapi_transform: Optional[Callable[[dict[str, Any]], Optional[dict[str, Any]]]] = None
@@ -663,6 +665,39 @@ class Cheema:
 
     def remove_state_resource(self, name: str):
         self._state_resources = [r for r in self._state_resources if r.name != name]
+
+    def add_status_route(self, path: str = "/admin/status", *, name: str = "status", include_in_schema: bool = False, auth: Optional[Callable[..., Any]] = None, extra: Optional[Callable[[], Any]] = None):
+        async def _status(req: Request):
+            if auth is not None:
+                result = auth(req)
+                if inspect.isawaitable(result):
+                    result = await result
+                if result is False:
+                    raise HTTPError(401, "Unauthorized status access")
+            routes = [
+                {"method": r.method, "path": r.path, "name": r.name, "tags": r.tags}
+                for r in self._routes
+            ]
+            payload: dict[str, Any] = {
+                "title": self._title,
+                "version": self._version,
+                "uptime_seconds": round(time.time() - self._started_at, 3),
+                "inflight_requests": self._inflight_http,
+                "route_count": len(routes),
+                "routes": routes,
+                "middleware": {
+                    "http": [type(mw).__name__ for mw in self.middleware._http_mws],
+                    "asgi": [type(mw).__name__ for mw in self.middleware._asgi_mws],
+                },
+            }
+            if extra is not None:
+                extra_value = extra()
+                if inspect.isawaitable(extra_value):
+                    extra_value = await extra_value
+                payload["extra"] = extra_value
+            return payload
+
+        self.get(path, name=name, include_in_schema=include_in_schema, tags=["ops"])(_status)
 
     def state_dependency(self, name: str, *, default: Any = _STATE_MISSING, required: bool = True):
         async def _dep(req: Request):

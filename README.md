@@ -38,6 +38,8 @@ py-cheema-api is a small, fast ASGI web framework built from scratch (stdlib-onl
 - `default=` on `Query`/`Header`/`Cookie`/`Form`/`File`/`Host`/`Body` for FastAPI-style optional params (e.g. `Query(default=10)`)
 - Native `Model`/`field()` validated data supports both `item["field"]` and `item.field` access
 - `TestClient`/`AsyncTestClient` accept `json=` and query strings embedded in the path, matching FastAPI's `TestClient`
+- Pluggable `MemoryCache` primitive, shareable between `ResponseCacheMiddleware` and your own route handlers
+- Built-in ops status endpoint via `app.add_status_route()` (route table, middleware stack, uptime, inflight requests, optional auth gate and custom `extra` payload)
 
 ## What's New
 
@@ -49,6 +51,10 @@ FastAPI migration parity fixes — see `MIGRATION.md` for the full guide:
 - Native `Model` validated data supports attribute access (`item.name`) alongside existing dict access (`item["name"]`)
 - `TestClient`/`AsyncTestClient` accept `json=` and parse query strings embedded directly in the path
 - `py_cheema_api` import alias, matching the PyPI distribution name
+
+New primitives:
+- `MemoryCache`: a pluggable in-process cache with per-entry TTL, usable directly by app code and shareable with `ResponseCacheMiddleware(cache=...)` so both can read/write the same store
+- `app.add_status_route()`: a built-in ops status endpoint reporting the route table, middleware stack, app title/version, uptime, and inflight-request count, with an optional `auth` gate and an `extra` hook for custom stats (e.g. queue depth, connection counts)
 
 ### v1.0.0
 Initial stable release under the `py-cheema-api` name (renamed from TurboAPI/`py-turbo-api`).
