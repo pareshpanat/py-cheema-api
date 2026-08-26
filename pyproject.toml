@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "py-cheema-api"
-version = "1.1.0"
+version = "1.0.1"
 description = "py-cheema-api - a high-performance ASGI framework with compiled routing, DI, validation, and OpenAPI."
 readme = "README.md"
 requires-python = ">=3.11"

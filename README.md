@@ -45,7 +45,7 @@ py-cheema-api is a small, fast ASGI web framework built from scratch (stdlib-onl
 
 ## What's New
 
-### v1.1.0
+### v1.0.1
 FastAPI migration parity fixes — see `MIGRATION.md` for the full guide:
 - `HTTPException` alias for `HTTPError`
 - `default=` support on all parameter markers (`Query`, `Header`, `Cookie`, `Form`, `File`, `Host`, `Body`)
@@ -65,7 +65,7 @@ Initial stable release under the `py-cheema-api` name (renamed from TurboAPI/`py
 
 ## Stability
 - Compatibility policy: `API_COMPATIBILITY.md`
-- Current status: v1.1.0
+- Current status: v1.0.1
 
 ## Install
 
