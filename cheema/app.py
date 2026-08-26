@@ -105,6 +105,13 @@ class StateResourceDef:
     factory: Callable[..., Any]
     cleanup: Optional[Callable[..., Any]] = None
 
+@dataclass(slots=True)
+class StaticMount:
+    prefix: str
+    root: str
+    spa_fallback: bool = False
+    index_file: str = "index.html"
+
 class APIRouter:
     def __init__(self, *, prefix: str = "", tags: Optional[list[str]] = None, dependencies: Optional[list[Any]] = None):
         if prefix and not prefix.startswith("/"):
@@ -171,7 +178,7 @@ class Cheema:
             "spool_threshold": int(multipart_spool_threshold),
             "max_part_size": int(multipart_max_part_size),
         }
-        self._static_mounts: list[tuple[str, str]] = []
+        self._static_mounts: list[StaticMount] = []
         self._subapps: list[tuple[str, Any]] = []
         self._host_mounts: list[tuple[str, Any]] = []
         self.redirect_slashes = bool(redirect_slashes)
@@ -580,10 +587,10 @@ class Cheema:
         self._json_encoders[tp] = fn
         return fn
 
-    def mount_static(self, prefix: str, directory: str):
+    def mount_static(self, prefix: str, directory: str, *, spa_fallback: bool = False, index_file: str = "index.html"):
         if not prefix.startswith("/"):
             raise ValueError("static prefix must start with /")
-        self._static_mounts.append((prefix.rstrip("/"), os.path.realpath(directory)))
+        self._static_mounts.append(StaticMount(prefix=prefix.rstrip("/"), root=os.path.realpath(directory), spa_fallback=spa_fallback, index_file=index_file))
 
     def mount(self, prefix: str, app: Any):
         if not prefix.startswith("/"):
@@ -886,14 +893,23 @@ class Cheema:
         return self._to_response(res, req=req, status_code_override=route.status_code if route is not None else None, response_class_override=route.response_class if route is not None else None)
 
     def _serve_static(self, path: str, req: Optional[Request] = None):
-        for prefix, root in self._static_mounts:
+        for mount in self._static_mounts:
+            prefix, root = mount.prefix, mount.root
             if path == prefix or path.startswith(prefix + "/"):
                 rel = path[len(prefix):].lstrip("/")
                 target = os.path.realpath(os.path.join(root, rel))
                 if not target.startswith(root):
                     return JSONResponse({"error":"Forbidden"}, status=403, encoders=self._json_encoders)
                 if not os.path.isfile(target):
-                    return JSONResponse({"error":"Not Found"}, status=404, encoders=self._json_encoders)
+                    last_segment = rel.rsplit("/", 1)[-1]
+                    if mount.spa_fallback and "." not in last_segment:
+                        index_target = os.path.realpath(os.path.join(root, mount.index_file))
+                        if index_target.startswith(root) and os.path.isfile(index_target):
+                            target = index_target
+                        else:
+                            return JSONResponse({"error":"Not Found"}, status=404, encoders=self._json_encoders)
+                    else:
+                        return JSONResponse({"error":"Not Found"}, status=404, encoders=self._json_encoders)
                 fr = FileResponse(target)
                 if req is not None:
                     fr.prepare_for_request(req.headers, method=req.method)
