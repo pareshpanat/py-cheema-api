@@ -60,6 +60,7 @@ class RouteDef:
     openapi_extra: Optional[dict[str, Any]] = None
     subprotocols: Optional[list[str]] = None
     dependencies: Optional[list[Depends]] = None
+    response_class: Optional[type] = None
 
 @dataclass(slots=True)
 class Route:
@@ -95,6 +96,7 @@ class Route:
     openapi_extra: dict[str, Any] | None = None
     subprotocols: list[str] | None = None
     dependencies: list[Depends] | None = None
+    response_class: Optional[type] = None
 
 
 @dataclass(slots=True)
@@ -112,25 +114,25 @@ class APIRouter:
         self.dependencies = _normalize_dependencies(dependencies)
         self._routes: list[RouteDef] = []
 
-    def route(self, method: str, path: str, *, name: Optional[str] = None, operation_id: Optional[str] = None, response_model: Optional[Any] = None, status_code: Optional[int] = None, include_in_schema: bool = True, internal: bool = False, tags: Optional[list[str]] = None, summary: Optional[str] = None, description: Optional[str] = None, responses: Optional[dict[Any, Any]] = None, security: Optional[list[dict[str, list[str]]]] = None, deprecated: bool = False, callbacks: Optional[dict[str, Any]] = None, webhooks: Optional[dict[str, Any]] = None, examples: Optional[dict[str, Any]] = None, response_description: Optional[str] = None, openapi_extra: Optional[dict[str, Any]] = None, dependencies: Optional[list[Any]] = None):
+    def route(self, method: str, path: str, *, name: Optional[str] = None, operation_id: Optional[str] = None, response_model: Optional[Any] = None, status_code: Optional[int] = None, include_in_schema: bool = True, internal: bool = False, tags: Optional[list[str]] = None, summary: Optional[str] = None, description: Optional[str] = None, responses: Optional[dict[Any, Any]] = None, security: Optional[list[dict[str, list[str]]]] = None, deprecated: bool = False, callbacks: Optional[dict[str, Any]] = None, webhooks: Optional[dict[str, Any]] = None, examples: Optional[dict[str, Any]] = None, response_description: Optional[str] = None, openapi_extra: Optional[dict[str, Any]] = None, dependencies: Optional[list[Any]] = None, response_class: Optional[type] = None):
         def deco(fn: Handler):
             merged_tags = list(dict.fromkeys([*self.tags, *(tags or [])]))
             merged_dependencies = [*self.dependencies, *_normalize_dependencies(dependencies)]
-            self._routes.append(RouteDef(method=method.upper(), path=path, handler=fn, name=name, operation_id=operation_id, response_model=response_model, status_code=status_code, include_in_schema=include_in_schema, internal=internal, tags=merged_tags or None, summary=summary, description=description, responses=responses, security=security, deprecated=deprecated, callbacks=callbacks, webhooks=webhooks, examples=examples, response_description=response_description, openapi_extra=openapi_extra, dependencies=merged_dependencies or None))
+            self._routes.append(RouteDef(method=method.upper(), path=path, handler=fn, name=name, operation_id=operation_id, response_model=response_model, status_code=status_code, include_in_schema=include_in_schema, internal=internal, tags=merged_tags or None, summary=summary, description=description, responses=responses, security=security, deprecated=deprecated, callbacks=callbacks, webhooks=webhooks, examples=examples, response_description=response_description, openapi_extra=openapi_extra, dependencies=merged_dependencies or None, response_class=response_class))
             return fn
         return deco
 
-    def get(self, path: str, *, name: Optional[str] = None, operation_id: Optional[str] = None, response_model: Optional[Any] = None, status_code: Optional[int] = None, include_in_schema: bool = True, internal: bool = False, tags: Optional[list[str]] = None, summary: Optional[str] = None, description: Optional[str] = None, responses: Optional[dict[Any, Any]] = None, security: Optional[list[dict[str, list[str]]]] = None, deprecated: bool = False, callbacks: Optional[dict[str, Any]] = None, webhooks: Optional[dict[str, Any]] = None, examples: Optional[dict[str, Any]] = None, response_description: Optional[str] = None, openapi_extra: Optional[dict[str, Any]] = None, dependencies: Optional[list[Any]] = None):
-        return self.route("GET", path, name=name, operation_id=operation_id, response_model=response_model, status_code=status_code, include_in_schema=include_in_schema, internal=internal, tags=tags, summary=summary, description=description, responses=responses, security=security, deprecated=deprecated, callbacks=callbacks, webhooks=webhooks, examples=examples, response_description=response_description, openapi_extra=openapi_extra, dependencies=dependencies)
+    def get(self, path: str, *, name: Optional[str] = None, operation_id: Optional[str] = None, response_model: Optional[Any] = None, status_code: Optional[int] = None, include_in_schema: bool = True, internal: bool = False, tags: Optional[list[str]] = None, summary: Optional[str] = None, description: Optional[str] = None, responses: Optional[dict[Any, Any]] = None, security: Optional[list[dict[str, list[str]]]] = None, deprecated: bool = False, callbacks: Optional[dict[str, Any]] = None, webhooks: Optional[dict[str, Any]] = None, examples: Optional[dict[str, Any]] = None, response_description: Optional[str] = None, openapi_extra: Optional[dict[str, Any]] = None, dependencies: Optional[list[Any]] = None, response_class: Optional[type] = None):
+        return self.route("GET", path, name=name, operation_id=operation_id, response_model=response_model, status_code=status_code, include_in_schema=include_in_schema, internal=internal, tags=tags, summary=summary, description=description, responses=responses, security=security, deprecated=deprecated, callbacks=callbacks, webhooks=webhooks, examples=examples, response_description=response_description, openapi_extra=openapi_extra, dependencies=dependencies, response_class=response_class)
 
-    def post(self, path: str, *, name: Optional[str] = None, operation_id: Optional[str] = None, response_model: Optional[Any] = None, status_code: Optional[int] = None, include_in_schema: bool = True, internal: bool = False, tags: Optional[list[str]] = None, summary: Optional[str] = None, description: Optional[str] = None, responses: Optional[dict[Any, Any]] = None, security: Optional[list[dict[str, list[str]]]] = None, deprecated: bool = False, callbacks: Optional[dict[str, Any]] = None, webhooks: Optional[dict[str, Any]] = None, examples: Optional[dict[str, Any]] = None, response_description: Optional[str] = None, openapi_extra: Optional[dict[str, Any]] = None, dependencies: Optional[list[Any]] = None):
-        return self.route("POST", path, name=name, operation_id=operation_id, response_model=response_model, status_code=status_code, include_in_schema=include_in_schema, internal=internal, tags=tags, summary=summary, description=description, responses=responses, security=security, deprecated=deprecated, callbacks=callbacks, webhooks=webhooks, examples=examples, response_description=response_description, openapi_extra=openapi_extra, dependencies=dependencies)
+    def post(self, path: str, *, name: Optional[str] = None, operation_id: Optional[str] = None, response_model: Optional[Any] = None, status_code: Optional[int] = None, include_in_schema: bool = True, internal: bool = False, tags: Optional[list[str]] = None, summary: Optional[str] = None, description: Optional[str] = None, responses: Optional[dict[Any, Any]] = None, security: Optional[list[dict[str, list[str]]]] = None, deprecated: bool = False, callbacks: Optional[dict[str, Any]] = None, webhooks: Optional[dict[str, Any]] = None, examples: Optional[dict[str, Any]] = None, response_description: Optional[str] = None, openapi_extra: Optional[dict[str, Any]] = None, dependencies: Optional[list[Any]] = None, response_class: Optional[type] = None):
+        return self.route("POST", path, name=name, operation_id=operation_id, response_model=response_model, status_code=status_code, include_in_schema=include_in_schema, internal=internal, tags=tags, summary=summary, description=description, responses=responses, security=security, deprecated=deprecated, callbacks=callbacks, webhooks=webhooks, examples=examples, response_description=response_description, openapi_extra=openapi_extra, dependencies=dependencies, response_class=response_class)
 
-    def put(self, path: str, *, name: Optional[str] = None, operation_id: Optional[str] = None, response_model: Optional[Any] = None, status_code: Optional[int] = None, include_in_schema: bool = True, internal: bool = False, tags: Optional[list[str]] = None, summary: Optional[str] = None, description: Optional[str] = None, responses: Optional[dict[Any, Any]] = None, security: Optional[list[dict[str, list[str]]]] = None, deprecated: bool = False, callbacks: Optional[dict[str, Any]] = None, webhooks: Optional[dict[str, Any]] = None, examples: Optional[dict[str, Any]] = None, response_description: Optional[str] = None, openapi_extra: Optional[dict[str, Any]] = None, dependencies: Optional[list[Any]] = None):
-        return self.route("PUT", path, name=name, operation_id=operation_id, response_model=response_model, status_code=status_code, include_in_schema=include_in_schema, internal=internal, tags=tags, summary=summary, description=description, responses=responses, security=security, deprecated=deprecated, callbacks=callbacks, webhooks=webhooks, examples=examples, response_description=response_description, openapi_extra=openapi_extra, dependencies=dependencies)
+    def put(self, path: str, *, name: Optional[str] = None, operation_id: Optional[str] = None, response_model: Optional[Any] = None, status_code: Optional[int] = None, include_in_schema: bool = True, internal: bool = False, tags: Optional[list[str]] = None, summary: Optional[str] = None, description: Optional[str] = None, responses: Optional[dict[Any, Any]] = None, security: Optional[list[dict[str, list[str]]]] = None, deprecated: bool = False, callbacks: Optional[dict[str, Any]] = None, webhooks: Optional[dict[str, Any]] = None, examples: Optional[dict[str, Any]] = None, response_description: Optional[str] = None, openapi_extra: Optional[dict[str, Any]] = None, dependencies: Optional[list[Any]] = None, response_class: Optional[type] = None):
+        return self.route("PUT", path, name=name, operation_id=operation_id, response_model=response_model, status_code=status_code, include_in_schema=include_in_schema, internal=internal, tags=tags, summary=summary, description=description, responses=responses, security=security, deprecated=deprecated, callbacks=callbacks, webhooks=webhooks, examples=examples, response_description=response_description, openapi_extra=openapi_extra, dependencies=dependencies, response_class=response_class)
 
-    def delete(self, path: str, *, name: Optional[str] = None, operation_id: Optional[str] = None, response_model: Optional[Any] = None, status_code: Optional[int] = None, include_in_schema: bool = True, internal: bool = False, tags: Optional[list[str]] = None, summary: Optional[str] = None, description: Optional[str] = None, responses: Optional[dict[Any, Any]] = None, security: Optional[list[dict[str, list[str]]]] = None, deprecated: bool = False, callbacks: Optional[dict[str, Any]] = None, webhooks: Optional[dict[str, Any]] = None, examples: Optional[dict[str, Any]] = None, response_description: Optional[str] = None, openapi_extra: Optional[dict[str, Any]] = None, dependencies: Optional[list[Any]] = None):
-        return self.route("DELETE", path, name=name, operation_id=operation_id, response_model=response_model, status_code=status_code, include_in_schema=include_in_schema, internal=internal, tags=tags, summary=summary, description=description, responses=responses, security=security, deprecated=deprecated, callbacks=callbacks, webhooks=webhooks, examples=examples, response_description=response_description, openapi_extra=openapi_extra, dependencies=dependencies)
+    def delete(self, path: str, *, name: Optional[str] = None, operation_id: Optional[str] = None, response_model: Optional[Any] = None, status_code: Optional[int] = None, include_in_schema: bool = True, internal: bool = False, tags: Optional[list[str]] = None, summary: Optional[str] = None, description: Optional[str] = None, responses: Optional[dict[Any, Any]] = None, security: Optional[list[dict[str, list[str]]]] = None, deprecated: bool = False, callbacks: Optional[dict[str, Any]] = None, webhooks: Optional[dict[str, Any]] = None, examples: Optional[dict[str, Any]] = None, response_description: Optional[str] = None, openapi_extra: Optional[dict[str, Any]] = None, dependencies: Optional[list[Any]] = None, response_class: Optional[type] = None):
+        return self.route("DELETE", path, name=name, operation_id=operation_id, response_model=response_model, status_code=status_code, include_in_schema=include_in_schema, internal=internal, tags=tags, summary=summary, description=description, responses=responses, security=security, deprecated=deprecated, callbacks=callbacks, webhooks=webhooks, examples=examples, response_description=response_description, openapi_extra=openapi_extra, dependencies=dependencies, response_class=response_class)
 
     def patch(self, path: str, **kwargs):
         return self.route("PATCH", path, **kwargs)
@@ -369,7 +371,7 @@ class Cheema:
         self._redoc_js_url = f"{pfx}/redoc.standalone.js"
         self._openapi_cache = None
 
-    def route(self, method:str, path:str, *, name:Optional[str]=None, operation_id: Optional[str] = None, response_model:Optional[Any]=None, status_code: Optional[int] = None, include_in_schema: bool = True, internal:bool=False, tags: Optional[list[str]] = None, summary: Optional[str] = None, description: Optional[str] = None, responses: Optional[dict[Any, Any]] = None, security: Optional[list[dict[str, list[str]]]] = None, deprecated: bool = False, callbacks: Optional[dict[str, Any]] = None, webhooks: Optional[dict[str, Any]] = None, examples: Optional[dict[str, Any]] = None, response_description: Optional[str] = None, openapi_extra: Optional[dict[str, Any]] = None, dependencies: Optional[list[Any]] = None):
+    def route(self, method:str, path:str, *, name:Optional[str]=None, operation_id: Optional[str] = None, response_model:Optional[Any]=None, status_code: Optional[int] = None, include_in_schema: bool = True, internal:bool=False, tags: Optional[list[str]] = None, summary: Optional[str] = None, description: Optional[str] = None, responses: Optional[dict[Any, Any]] = None, security: Optional[list[dict[str, list[str]]]] = None, deprecated: bool = False, callbacks: Optional[dict[str, Any]] = None, webhooks: Optional[dict[str, Any]] = None, examples: Optional[dict[str, Any]] = None, response_description: Optional[str] = None, openapi_extra: Optional[dict[str, Any]] = None, dependencies: Optional[list[Any]] = None, response_class: Optional[type] = None):
         method=method.upper()
         def deco(fn:Handler):
             self.router.add(method, path, fn)
@@ -481,6 +483,7 @@ class Cheema:
                 openapi_extra=openapi_extra,
                 subprotocols=None,
                 dependencies=explicit_dependencies or None,
+                response_class=response_class,
             )
             self._routes.append(r)
             self._route_by_handler[fn] = r
@@ -599,7 +602,7 @@ class Cheema:
             path = f"{base_prefix}{route_path}" or "/"
             merged_tags = list(dict.fromkeys([*(rd.tags or []), *extra_tags])) or None
             merged_dependencies = [*list(rd.dependencies or []), *include_dependencies]
-            self.route(rd.method, path, name=rd.name, operation_id=rd.operation_id, response_model=rd.response_model, status_code=rd.status_code, include_in_schema=rd.include_in_schema, internal=rd.internal, tags=merged_tags, summary=rd.summary, description=rd.description, responses=rd.responses, security=rd.security, deprecated=rd.deprecated, callbacks=rd.callbacks, webhooks=rd.webhooks, examples=rd.examples, response_description=rd.response_description, openapi_extra=rd.openapi_extra, dependencies=merged_dependencies)(rd.handler)
+            self.route(rd.method, path, name=rd.name, operation_id=rd.operation_id, response_model=rd.response_model, status_code=rd.status_code, include_in_schema=rd.include_in_schema, internal=rd.internal, tags=merged_tags, summary=rd.summary, description=rd.description, responses=rd.responses, security=rd.security, deprecated=rd.deprecated, callbacks=rd.callbacks, webhooks=rd.webhooks, examples=rd.examples, response_description=rd.response_description, openapi_extra=rd.openapi_extra, dependencies=merged_dependencies, response_class=rd.response_class)(rd.handler)
 
     def on_event(self, event: str):
         if event not in ("startup", "shutdown"):
@@ -880,7 +883,7 @@ class Cheema:
             finally:
                 for cb in reversed(cleanups):
                     await call_callable(cb)
-        return self._to_response(res, req=req, status_code_override=route.status_code if route is not None else None)
+        return self._to_response(res, req=req, status_code_override=route.status_code if route is not None else None, response_class_override=route.response_class if route is not None else None)
 
     def _serve_static(self, path: str, req: Optional[Request] = None):
         for prefix, root in self._static_mounts:
@@ -897,7 +900,7 @@ class Cheema:
                 return fr
         return None
 
-    def _to_response(self, result:Any, req: Optional[Request]=None, status_code_override: Optional[int]=None)->Response:
+    def _to_response(self, result:Any, req: Optional[Request]=None, status_code_override: Optional[int]=None, response_class_override: Optional[type]=None)->Response:
         if isinstance(result, Response):
             if isinstance(result, FileResponse) and req is not None:
                 result.prepare_for_request(req.headers, method=req.method)
@@ -905,6 +908,10 @@ class Cheema:
         status = int(status_code_override) if status_code_override is not None else 200
         if is_pydantic_model_instance(result):
             result = dump_pydantic_model(result)
+        if response_class_override is not None:
+            if response_class_override is JSONResponse:
+                return JSONResponse(result, status=status, encoders=self._json_encoders)
+            return response_class_override(result, status=status)
         if isinstance(result, (dict,list,int,float,bool)) or result is None:
             return JSONResponse(result, status=status, encoders=self._json_encoders)
         if isinstance(result, str):
