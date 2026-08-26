@@ -1,8 +1,8 @@
 # API Compatibility And Stability Policy
 
 ## Status
-- Current maturity: v1.0.0.
-- Goal: stabilize public API and release `v1.1.0` with compatibility guarantees.
+- Current maturity: v1.1.0.
+- Public API stabilized under SemVer as of `v1.0.0`; see `README.md` "What's New" for release-by-release changes.
 
 ## Public API Surface
 The following are treated as public API:

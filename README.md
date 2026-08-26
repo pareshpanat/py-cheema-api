@@ -34,10 +34,28 @@ py-cheema-api is a small, fast ASGI web framework built from scratch (stdlib-onl
 - Queue adapters: `CeleryQueueAdapter`, `RQQueueAdapter`, `RedisQueueAdapter`
 - CI release gates: Python matrix tests/lint + package build and `twine check`, with trusted publishing workflow
 - Benchmark suite + perf regression gates in CI (`benchmarks/bench_runtime.py`)
+- `HTTPException` (alias for `HTTPError`) and a `py_cheema_api` import alias for FastAPI-style migrations
+- `default=` on `Query`/`Header`/`Cookie`/`Form`/`File`/`Host`/`Body` for FastAPI-style optional params (e.g. `Query(default=10)`)
+- Native `Model`/`field()` validated data supports both `item["field"]` and `item.field` access
+- `TestClient`/`AsyncTestClient` accept `json=` and query strings embedded in the path, matching FastAPI's `TestClient`
+
+## What's New
+
+### v1.1.0
+FastAPI migration parity fixes — see `MIGRATION.md` for the full guide:
+- `HTTPException` alias for `HTTPError`
+- `default=` support on all parameter markers (`Query`, `Header`, `Cookie`, `Form`, `File`, `Host`, `Body`)
+- Pydantic `BaseModel` responses now serialize cleanly instead of being wrapped in an envelope
+- Native `Model` validated data supports attribute access (`item.name`) alongside existing dict access (`item["name"]`)
+- `TestClient`/`AsyncTestClient` accept `json=` and parse query strings embedded directly in the path
+- `py_cheema_api` import alias, matching the PyPI distribution name
+
+### v1.0.0
+Initial stable release under the `py-cheema-api` name (renamed from TurboAPI/`py-turbo-api`).
 
 ## Stability
 - Compatibility policy: `API_COMPATIBILITY.md`
-- Current status: v1.0.0 (public API is stabilizing toward `v1.1.0`)
+- Current status: v1.1.0
 
 ## Install
 
@@ -70,6 +88,8 @@ Open:
 - Deployment: `docs/deployment.md`
 - Security recipes: `docs/security-recipes.md`
 - Why py-cheema-api + benchmark method: `docs/why-py-cheema-api.md`
+- Migrating from FastAPI: `MIGRATION.md`
+- Benchmark methodology: `BENCHMARKS.md`
 
 ## Benchmarks
 ```bash
