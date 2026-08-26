@@ -16,6 +16,18 @@ from .pydantic_compat import is_pydantic_model_class, validate_pydantic_model
 _MISSING = object()
 
 
+class _ValidatedModel(dict):
+    """Validated Model data: dict-compatible, plus item.field attribute access."""
+
+    __slots__ = ()
+
+    def __getattr__(self, name: str) -> Any:
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(name) from None
+
+
 @dataclass(frozen=True, slots=True)
 class FieldInfo:
     min_len: Optional[int] = None
@@ -229,7 +241,7 @@ def compile_model_validator(model_cls: type[Model]):
         if not isinstance(raw, dict):
             _validation_error(list(loc_prefix) or ["body"], "Input should be an object", "type_error.object")
 
-        out = {}
+        out = _ValidatedModel()
         for field_name, alias, tp, fi, default_value in compiled:
             optional = is_optional(tp)
             base = unwrap_optional(tp)

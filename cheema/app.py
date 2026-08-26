@@ -24,6 +24,7 @@ from .openapi import build_openapi
 from .pydantic_compat import (
     dump_pydantic_model,
     is_pydantic_model_class,
+    is_pydantic_model_instance,
     validate_pydantic_model,
 )
 from .request import Request, State, WebSocket
@@ -867,6 +868,8 @@ class Cheema:
                 result.prepare_for_request(req.headers, method=req.method)
             return result
         status = int(status_code_override) if status_code_override is not None else 200
+        if is_pydantic_model_instance(result):
+            result = dump_pydantic_model(result)
         if isinstance(result, (dict,list,int,float,bool)) or result is None:
             return JSONResponse(result, status=status, encoders=self._json_encoders)
         if isinstance(result, str):

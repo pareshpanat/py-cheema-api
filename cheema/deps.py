@@ -49,11 +49,14 @@ def dependency_group(*items: Any):
         raise TypeError("dependency_group accepts Depends, DependencyGroup, or callables")
     return DependencyGroup(tuple(deps))
 
+_UNSET = object()
+
 @dataclass(frozen=True, slots=True)
 class Param:
     source: str
     alias: Optional[str] = None
     required: bool = True
+    default: Any = None
     media_type: Optional[str] = None
     embed: Optional[bool] = None
     description: Optional[str] = None
@@ -62,26 +65,29 @@ class Param:
     deprecated: bool = False
     schema: Optional[dict[str, Any]] = None
 
-def Query(*, alias: Optional[str] = None, required: bool = True, description: Optional[str] = None, example: Any = None, examples: Optional[dict[str, Any]] = None, deprecated: bool = False, schema: Optional[dict[str, Any]] = None):
-    return Param(source="query", alias=alias, required=required, description=description, example=example, examples=examples, deprecated=deprecated, schema=schema)
+def _resolve_required(required: Optional[bool], default: Any):
+    return (default is _UNSET) if required is None else required
 
-def Header(*, alias: Optional[str] = None, required: bool = True, description: Optional[str] = None, example: Any = None, examples: Optional[dict[str, Any]] = None, deprecated: bool = False, schema: Optional[dict[str, Any]] = None):
-    return Param(source="header", alias=alias, required=required, description=description, example=example, examples=examples, deprecated=deprecated, schema=schema)
+def Query(*, alias: Optional[str] = None, required: Optional[bool] = None, default: Any = _UNSET, description: Optional[str] = None, example: Any = None, examples: Optional[dict[str, Any]] = None, deprecated: bool = False, schema: Optional[dict[str, Any]] = None):
+    return Param(source="query", alias=alias, required=_resolve_required(required, default), default=None if default is _UNSET else default, description=description, example=example, examples=examples, deprecated=deprecated, schema=schema)
 
-def Cookie(*, alias: Optional[str] = None, required: bool = True, description: Optional[str] = None, example: Any = None, examples: Optional[dict[str, Any]] = None, deprecated: bool = False, schema: Optional[dict[str, Any]] = None):
-    return Param(source="cookie", alias=alias, required=required, description=description, example=example, examples=examples, deprecated=deprecated, schema=schema)
+def Header(*, alias: Optional[str] = None, required: Optional[bool] = None, default: Any = _UNSET, description: Optional[str] = None, example: Any = None, examples: Optional[dict[str, Any]] = None, deprecated: bool = False, schema: Optional[dict[str, Any]] = None):
+    return Param(source="header", alias=alias, required=_resolve_required(required, default), default=None if default is _UNSET else default, description=description, example=example, examples=examples, deprecated=deprecated, schema=schema)
 
-def Form(*, alias: Optional[str] = None, required: bool = True, description: Optional[str] = None, example: Any = None, examples: Optional[dict[str, Any]] = None, deprecated: bool = False, schema: Optional[dict[str, Any]] = None):
-    return Param(source="form", alias=alias, required=required, description=description, example=example, examples=examples, deprecated=deprecated, schema=schema)
+def Cookie(*, alias: Optional[str] = None, required: Optional[bool] = None, default: Any = _UNSET, description: Optional[str] = None, example: Any = None, examples: Optional[dict[str, Any]] = None, deprecated: bool = False, schema: Optional[dict[str, Any]] = None):
+    return Param(source="cookie", alias=alias, required=_resolve_required(required, default), default=None if default is _UNSET else default, description=description, example=example, examples=examples, deprecated=deprecated, schema=schema)
 
-def File(*, alias: Optional[str] = None, required: bool = True, description: Optional[str] = None, example: Any = None, examples: Optional[dict[str, Any]] = None, deprecated: bool = False, schema: Optional[dict[str, Any]] = None):
-    return Param(source="file", alias=alias, required=required, description=description, example=example, examples=examples, deprecated=deprecated, schema=schema)
+def Form(*, alias: Optional[str] = None, required: Optional[bool] = None, default: Any = _UNSET, description: Optional[str] = None, example: Any = None, examples: Optional[dict[str, Any]] = None, deprecated: bool = False, schema: Optional[dict[str, Any]] = None):
+    return Param(source="form", alias=alias, required=_resolve_required(required, default), default=None if default is _UNSET else default, description=description, example=example, examples=examples, deprecated=deprecated, schema=schema)
 
-def Host(*, alias: Optional[str] = None, required: bool = True, description: Optional[str] = None, example: Any = None, examples: Optional[dict[str, Any]] = None, deprecated: bool = False, schema: Optional[dict[str, Any]] = None):
-    return Param(source="host", alias=alias, required=required, description=description, example=example, examples=examples, deprecated=deprecated, schema=schema)
+def File(*, alias: Optional[str] = None, required: Optional[bool] = None, default: Any = _UNSET, description: Optional[str] = None, example: Any = None, examples: Optional[dict[str, Any]] = None, deprecated: bool = False, schema: Optional[dict[str, Any]] = None):
+    return Param(source="file", alias=alias, required=_resolve_required(required, default), default=None if default is _UNSET else default, description=description, example=example, examples=examples, deprecated=deprecated, schema=schema)
 
-def Body(*, alias: Optional[str] = None, required: bool = True, media_type: Optional[str] = None, embed: Optional[bool] = None, description: Optional[str] = None, example: Any = None, examples: Optional[dict[str, Any]] = None, schema: Optional[dict[str, Any]] = None):
-    return Param(source="body", alias=alias, required=required, media_type=media_type, embed=embed, description=description, example=example, examples=examples, schema=schema)
+def Host(*, alias: Optional[str] = None, required: Optional[bool] = None, default: Any = _UNSET, description: Optional[str] = None, example: Any = None, examples: Optional[dict[str, Any]] = None, deprecated: bool = False, schema: Optional[dict[str, Any]] = None):
+    return Param(source="host", alias=alias, required=_resolve_required(required, default), default=None if default is _UNSET else default, description=description, example=example, examples=examples, deprecated=deprecated, schema=schema)
+
+def Body(*, alias: Optional[str] = None, required: Optional[bool] = None, default: Any = _UNSET, media_type: Optional[str] = None, embed: Optional[bool] = None, description: Optional[str] = None, example: Any = None, examples: Optional[dict[str, Any]] = None, schema: Optional[dict[str, Any]] = None):
+    return Param(source="body", alias=alias, required=_resolve_required(required, default), default=None if default is _UNSET else default, media_type=media_type, embed=embed, description=description, example=example, examples=examples, schema=schema)
 
 @dataclass(slots=True)
 class ParamSpec:
@@ -168,7 +174,7 @@ async def _read_param_value(spec: ParamSpec, *, req: Request, receive, path: Dic
         source = spec.param.source
         alias = spec.param.alias or name
         required = spec.param.required
-        fallback_default = None
+        fallback_default = spec.param.default
     else:
         source = "path" if name in path_param_names else ("body" if (validate_body_fn and ((body_param_name == name) or (body_param_names is not None and name in body_param_names))) else "query")
         alias = name

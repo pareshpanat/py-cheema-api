@@ -37,7 +37,7 @@ Repository = "https://github.com/pareshpanat/py-cheema-api"
 Issues = "https://github.com/pareshpanat/py-cheema-api/issues"
 
 [tool.setuptools.packages.find]
-include = ["cheema*"]
+include = ["cheema*", "py_cheema_api*"]
 
 [tool.ruff]
 target-version = "py311"

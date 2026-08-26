@@ -21,6 +21,7 @@
   "GZipMiddleware",
   "HTMLResponse",
   "HTTPError",
+  "HTTPException",
   "HTTPSRedirectMiddleware",
   "Header",
   "Host",

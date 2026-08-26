@@ -4,3 +4,5 @@ class HTTPError(Exception):
         self.status=int(status)
         self.message=str(message)
         self.detail=detail
+
+HTTPException = HTTPError

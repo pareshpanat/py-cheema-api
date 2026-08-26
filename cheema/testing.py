@@ -4,7 +4,29 @@ import asyncio
 import json
 from contextlib import contextmanager
 from dataclasses import dataclass
-from urllib.parse import urlencode
+from urllib.parse import parse_qsl, urlencode
+
+_UNSET = object()
+
+
+def _split_path_and_query(path: str, params: dict | None) -> tuple[str, bytes]:
+    clean_path, sep, embedded_qs = path.partition("?")
+    pairs = parse_qsl(embedded_qs, keep_blank_values=True) if sep else []
+    if params:
+        for k, v in params.items():
+            if isinstance(v, (list, tuple)):
+                pairs.extend((k, item) for item in v)
+            else:
+                pairs.append((k, v))
+    qs = urlencode(pairs).encode("utf-8") if pairs else b""
+    return clean_path, qs
+
+
+def _pop_json_alias(kwargs: dict) -> None:
+    if "json" in kwargs:
+        if kwargs.get("json_body") is not None:
+            raise TypeError("pass either 'json' or 'json_body', not both")
+        kwargs["json_body"] = kwargs.pop("json")
 
 
 @dataclass(slots=True)
@@ -89,15 +111,16 @@ class TestClient:
                 raise RuntimeError("lifespan shutdown failed")
             await asyncio.sleep(0)
 
-    def request(self, method: str, path: str, *, headers: dict[str, str] | None = None, params: dict[str, str] | None = None, json_body=None, data=None, content: bytes | str | None = None) -> TestResponse:
+    def request(self, method: str, path: str, *, headers: dict[str, str] | None = None, params: dict[str, str] | None = None, json_body=None, json=_UNSET, data=None, content: bytes | str | None = None) -> TestResponse:
+        if json is not _UNSET:
+            if json_body is not None:
+                raise TypeError("pass either 'json' or 'json_body', not both")
+            json_body = json
         return asyncio.run(self._request(method, path, headers=headers, params=params, json_body=json_body, data=data, content=content))
 
     async def _request(self, method: str, path: str, *, headers: dict[str, str] | None = None, params: dict[str, str] | None = None, json_body=None, data=None, content: bytes | str | None = None) -> TestResponse:
         hdrs = {k.lower(): v for k, v in (headers or {}).items()}
-        if params:
-            qs = urlencode(params, doseq=True).encode("utf-8")
-        else:
-            qs = b""
+        path, qs = _split_path_and_query(path, params)
         if json_body is not None:
             body = json.dumps(json_body, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
             hdrs.setdefault("content-type", "application/json")
@@ -155,24 +178,31 @@ class TestClient:
         return TestResponse(status_code=int(start["status"]), headers=out_headers, content=body_bytes)
 
     def get(self, path: str, **kwargs):
+        _pop_json_alias(kwargs)
         return self.request("GET", path, **kwargs)
 
     def post(self, path: str, **kwargs):
+        _pop_json_alias(kwargs)
         return self.request("POST", path, **kwargs)
 
     def put(self, path: str, **kwargs):
+        _pop_json_alias(kwargs)
         return self.request("PUT", path, **kwargs)
 
     def patch(self, path: str, **kwargs):
+        _pop_json_alias(kwargs)
         return self.request("PATCH", path, **kwargs)
 
     def delete(self, path: str, **kwargs):
+        _pop_json_alias(kwargs)
         return self.request("DELETE", path, **kwargs)
 
     def options(self, path: str, **kwargs):
+        _pop_json_alias(kwargs)
         return self.request("OPTIONS", path, **kwargs)
 
     def head(self, path: str, **kwargs):
+        _pop_json_alias(kwargs)
         return self.request("HEAD", path, **kwargs)
 
     @contextmanager
@@ -375,12 +405,15 @@ class AsyncTestClient:
             else:
                 self._cookies.pop(ck, None)
 
-    async def request(self, method: str, path: str, *, headers: dict[str, str] | None = None, params: dict[str, str] | None = None, json_body=None, data=None, content: bytes | str | None = None) -> TestResponse:
+    async def request(self, method: str, path: str, *, headers: dict[str, str] | None = None, params: dict[str, str] | None = None, json_body=None, data=None, content: bytes | str | None = None, **extra) -> TestResponse:
+        if "json" in extra:
+            if json_body is not None:
+                raise TypeError("pass either 'json' or 'json_body', not both")
+            json_body = extra.pop("json")
+        if extra:
+            raise TypeError(f"request() got unexpected keyword arguments: {sorted(extra)}")
         hdrs = {k.lower(): v for k, v in (headers or {}).items()}
-        if params:
-            qs = urlencode(params, doseq=True).encode("utf-8")
-        else:
-            qs = b""
+        path, qs = _split_path_and_query(path, params)
         if json_body is not None:
             body = json.dumps(json_body, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
             hdrs.setdefault("content-type", "application/json")
@@ -427,24 +460,31 @@ class AsyncTestClient:
         return TestResponse(status_code=int(start["status"]), headers=out_headers, content=body_bytes)
 
     async def get(self, path: str, **kwargs):
+        _pop_json_alias(kwargs)
         return await self.request("GET", path, **kwargs)
 
     async def post(self, path: str, **kwargs):
+        _pop_json_alias(kwargs)
         return await self.request("POST", path, **kwargs)
 
     async def put(self, path: str, **kwargs):
+        _pop_json_alias(kwargs)
         return await self.request("PUT", path, **kwargs)
 
     async def patch(self, path: str, **kwargs):
+        _pop_json_alias(kwargs)
         return await self.request("PATCH", path, **kwargs)
 
     async def delete(self, path: str, **kwargs):
+        _pop_json_alias(kwargs)
         return await self.request("DELETE", path, **kwargs)
 
     async def options(self, path: str, **kwargs):
+        _pop_json_alias(kwargs)
         return await self.request("OPTIONS", path, **kwargs)
 
     async def head(self, path: str, **kwargs):
+        _pop_json_alias(kwargs)
         return await self.request("HEAD", path, **kwargs)
 
     async def websocket_connect(self, path: str, *, headers: dict[str, str] | None = None, params: dict[str, str] | None = None, subprotocols: list[str] | None = None):
