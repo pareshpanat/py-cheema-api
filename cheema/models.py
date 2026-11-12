@@ -197,9 +197,249 @@ def type_validator(tp: type, *, mode: str = "after"):
     def deco(fn):
         bucket = _TYPE_VALIDATORS.setdefault(tp, {"before": [], "after": []})
         bucket[mode].append(fn)
+        _FAST_MODELS.clear()  # fast paths bypass type validators; rebuild lazily
         return fn
 
     return deco
+
+
+class _Slow(Exception):
+    """Raised by fast-path validators on anything unusual (bad input, constraint hit).
+
+    The caller then re-runs the original, fully-featured validation path, which
+    produces the exact error (message, type, loc). The fast path therefore never
+    has to build error objects or track `loc`, and success results are identical.
+    """
+
+
+# model class -> fast validator (callable) or None when the model is not eligible.
+_FAST_MODELS: dict[type, Any] = {}
+_FAST_BUILDING: set[type] = set()
+
+
+def _fast_model(model_cls: type[Model]):
+    try:
+        return _FAST_MODELS[model_cls]
+    except KeyError:
+        pass
+    if model_cls in _FAST_BUILDING:  # self-referential model: use the slow path
+        return None
+    _FAST_BUILDING.add(model_cls)
+    try:
+        try:
+            fn = _build_fast_model(model_cls)
+        except Exception:
+            fn = None
+    finally:
+        _FAST_BUILDING.discard(model_cls)
+    _FAST_MODELS[model_cls] = fn
+    return fn
+
+
+def _build_fast_model(model_cls: type[Model]):
+    """Build a single-pass validator, or None if the model needs the general path.
+
+    Models with field/model validators keep the general path (their hooks may have
+    side effects and must run exactly once).
+    """
+    mv = _collect_model_validators(model_cls)
+    if mv["before"] or mv["after"] or _collect_field_validators(model_cls):
+        return None
+    populate_by_name = _get_populate_by_name(model_cls)
+    steps = []
+    for name, tp in getattr(model_cls, "__annotations__", {}).items():
+        base_tp, ann_fi = _split_annotated(tp)
+        dv = getattr(model_cls, name, _MISSING)
+        fi = None
+        default = _MISSING
+        if isinstance(dv, FieldInfo):
+            fi = dv
+        elif dv is not _MISSING:
+            default = dv
+        if ann_fi is not None:
+            fi = ann_fi
+        node = _fast_node(unwrap_optional(base_tp), fi)
+        if node is None:
+            return None
+        alias = fi.alias if fi is not None and fi.alias else None
+        steps.append((name, alias, node, is_optional(base_tp), default))
+    steps = tuple(steps)
+
+    def fast(raw: Any):
+        if not isinstance(raw, dict):
+            raise _Slow
+        out = _ValidatedModel()
+        for name, alias, node, optional, default in steps:
+            if alias:
+                if alias in raw:
+                    key = alias
+                elif populate_by_name and name in raw:
+                    key = name
+                else:
+                    key = None
+            elif name in raw:
+                key = name
+            else:
+                key = None
+            if key is None:
+                if default is not _MISSING:
+                    out[name] = default
+                elif optional:
+                    out[name] = None
+                else:
+                    raise _Slow
+                continue
+            value = raw[key]
+            if value is None and optional:
+                out[name] = None
+            else:
+                out[name] = node(value)
+        return out
+
+    return fast
+
+
+def _fast_node(tp: Any, fi: Optional[FieldInfo]):
+    """Compile `tp` (+ constraints) into `f(value) -> validated value | raise _Slow`.
+
+    Returns None when `tp` is not covered; the owner then uses the general path.
+    Mirrors validate_value() semantics for the covered types.
+    """
+    if tp is Any:
+        return lambda v: v
+    if not isinstance(tp, type) and get_origin(tp) not in (list, dict, Literal):
+        return None
+    if isinstance(tp, type) and tp in _TYPE_VALIDATORS:
+        return None
+    if isinstance(tp, type):
+        if issubclass(tp, Model):
+            return _fast_model(tp)
+        if is_pydantic_model_class(tp) or _is_typed_dict_class(tp) or is_dataclass(tp):
+            return None
+
+    origin = get_origin(tp)
+    args = get_args(tp)
+    if origin is Literal:
+        allowed = tuple(args)
+
+        def lit(v):
+            if v not in allowed:
+                raise _Slow
+            return v
+
+        return lit
+    if origin is list:
+        inner = _fast_node(args[0], None) if args else (lambda v: v)
+        if inner is None:
+            return None
+        lo = fi.min_items if fi else None
+        hi = fi.max_items if fi else None
+
+        def lst(v):
+            if not isinstance(v, list):
+                raise _Slow
+            if (lo is not None and len(v) < lo) or (hi is not None and len(v) > hi):
+                raise _Slow
+            return [inner(x) for x in v]
+
+        return lst
+    if origin is dict:
+        inner = _fast_node(args[1], None) if len(args) == 2 else (lambda v: v)
+        if inner is None:
+            return None
+
+        def dct(v):
+            if not isinstance(v, dict):
+                raise _Slow
+            return {str(k): inner(x) for k, x in v.items()}
+
+        return dct
+    if origin is not None or not isinstance(tp, type):
+        return None  # unions, Annotated, other generics
+
+    if issubclass(tp, Enum):
+        def enm(v):
+            try:
+                return tp(v)
+            except Exception:
+                raise _Slow from None
+
+        return enm
+    if tp is str:
+        lo, hi = (fi.min_len, fi.max_len) if fi else (None, None)
+        rx = re.compile(fi.regex).search if fi and fi.regex is not None else None
+        if lo is None and hi is None and rx is None:
+            def s(v):
+                if v.__class__ is str or isinstance(v, str):
+                    return v
+                raise _Slow
+        else:
+            def s(v):
+                if not isinstance(v, str):
+                    raise _Slow
+                if (lo is not None and len(v) < lo) or (hi is not None and len(v) > hi):
+                    raise _Slow
+                if rx is not None and rx(v) is None:
+                    raise _Slow
+                return v
+        return s
+    if tp is int or tp is float:
+        if fi and fi.multiple_of is not None:
+            return None
+        ge, le, gt, lt = (fi.ge, fi.le, fi.gt, fi.lt) if fi else (None, None, None, None)
+        constrained = any(c is not None for c in (ge, le, gt, lt))
+        is_int = tp is int
+
+        def num(v):
+            c = v.__class__
+            if c is int:
+                pass
+            elif c is float:
+                if is_int:
+                    raise _Slow
+            elif c is bool or not isinstance(v, (int,) if is_int else (int, float)):
+                raise _Slow
+            if not is_int:
+                v = float(v)
+            if constrained:
+                if (ge is not None and v < ge) or (le is not None and v > le) or (gt is not None and v <= gt) or (lt is not None and v >= lt):
+                    raise _Slow
+            return v
+
+        return num
+    if tp is bool:
+        def b(v):
+            if v is True or v is False:
+                return v
+            raise _Slow
+
+        return b
+    if tp is bytes:
+        def by(v):
+            if isinstance(v, bytes):
+                return v
+            if isinstance(v, str):
+                return v.encode("utf-8")
+            raise _Slow
+
+        return by
+    if tp is datetime or tp is date or tp is time or tp is UUID:
+        def parsed(v):
+            if not isinstance(v, str):
+                raise _Slow
+            try:
+                if tp is datetime:
+                    return datetime.fromisoformat(v.replace("Z", "+00:00"))
+                if tp is UUID:
+                    return UUID(v)
+                return tp.fromisoformat(v)
+            except ValueError:
+                raise _Slow from None
+
+        return parsed
+    if tp is Decimal:
+        return None
+    return lambda v: v  # unknown plain type: validate_value passes it through untouched
 
 
 def compile_model_validator(model_cls: type[Model]):
@@ -227,6 +467,14 @@ def compile_model_validator(model_cls: type[Model]):
         compiled.append((name, alias, base_tp, fi, real_default))
 
     def validate(data: Any, *, loc_prefix: tuple[Any, ...] = ()):
+        fast = _FAST_MODELS.get(model_cls, _MISSING)
+        if fast is _MISSING:
+            fast = _fast_model(model_cls)
+        if fast is not None:
+            try:
+                return fast(data)
+            except _Slow:
+                pass  # re-run below to produce the exact error
         raw = data
         for fn in model_validators["before"]:
             try:
