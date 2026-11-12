@@ -7,7 +7,13 @@ import pytest
 
 from cheema import models
 from cheema.errors import HTTPError
-from cheema.models import Model, compile_model_validator, field, field_validator, type_validator
+from cheema.models import (
+    Model,
+    compile_model_validator,
+    field,
+    field_validator,
+    type_validator,
+)
 
 
 class Color(Enum):
