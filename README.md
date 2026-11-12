@@ -102,6 +102,19 @@ Open:
 - Benchmark methodology: `BENCHMARKS.md`
 
 ## Benchmarks
+Sandbox comparison against FastAPI (both on uvicorn, same machine; only the ratios are meaningful):
+
+| Scenario | Cheema req/s | FastAPI req/s | Ratio |
+|---|---:|---:|---:|
+| `GET /hello` | 9,951 | 6,920 | 1.44x |
+| Path-param GET | 9,613 | 6,308 | 1.52x |
+| Query-param GET | 8,689 | 5,652 | 1.54x |
+| Small POST | 8,935 | 5,609 | 1.59x |
+| Large POST (about 2 KB) | 5,701 | 3,641 | 1.57x |
+| 100-row JSON list | 2,545 | 1,290 | 1.97x |
+
+p99 latency and the full caveats are in `BENCHMARKS.md`. To run the regression gate:
+
 ```bash
 python benchmarks/bench_runtime.py --baseline benchmarks/baseline.json --tolerance 1.20 --gate
 ```

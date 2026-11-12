@@ -108,6 +108,48 @@ shows wins reads as marketing, not evidence — and undermines the credibility
 you're trying to build against a competitor whose own README already invites
 scrutiny of its numbers.
 
+## Published results: py-cheema-api vs FastAPI
+
+Sandbox run, py-cheema-api and FastAPI both served by uvicorn on the same
+machine, one at a time, sync handlers. Higher req/s is better; lower p99 is
+better.
+
+| Scenario | Cheema req/s | FastAPI req/s | Ratio | p99 ms (Cheema / FastAPI) |
+|---|---:|---:|---:|---:|
+| `GET /hello` | 9,951 | 6,920 | 1.44x | 14 / 15 |
+| Path-param GET | 9,613 | 6,308 | 1.52x | 13 / 16 |
+| Query-param GET | 8,689 | 5,652 | 1.54x | 15 / 17 |
+| Small POST (2 fields) | 8,935 | 5,609 | 1.59x | 16 / 18 |
+| Large POST (about 2 KB, nested) | 5,701 | 3,641 | 1.57x | 22 / 36 |
+| 100-row JSON list | 2,545 | 1,290 | 1.97x | 50 / 80 |
+
+Reading the table:
+
+- Cheema is about 1.4x to 2.0x faster than FastAPI on every scenario above,
+  with equal or lower p99 latency.
+- **Only the ratios are meaningful.** The load generator ran on the same CPU as
+  the server, so absolute req/s is lower than a dedicated rig would give.
+- Not measured: real endpoints, database latency, multiple workers, HTTP/2 or
+  TLS, long soak runs, memory, cold start, install footprint.
+
+### Large request bodies: a regression that was found and fixed
+
+An earlier run of the same harness showed Cheema at **0.56x** of FastAPI on the
+2 KB POST (about 1,485 vs 2,644 req/s). Cause: the stdlib `Model` validator
+re-inspected the type of every value (about 190 values in that body), costing
+about 746 µs per request against about 17 µs for pydantic's compiled core.
+
+The validator now compiles each `Model`'s field types once into specialised
+closures and falls back to the original path to build error details, so error
+messages and `loc` values are unchanged. Validation of the same body measured
+about 33 µs in a micro-benchmark (down from about 600 µs), which is what moved
+the large-POST row above from 0.56x to 1.57x.
+
+Models that use `field_validator` / `model_validator` hooks, unions, `Decimal`,
+dataclasses, TypedDicts or pydantic fields still use the general path and do
+not get this speedup. Declaring a very large body as a pydantic `BaseModel` is
+still an option, and cheema accepts it.
+
 ## Reproducibility
 
 Ship `benchmarks/bench_runtime.py` results as JSON alongside a `baseline.json`
